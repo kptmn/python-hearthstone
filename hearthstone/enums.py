@@ -440,7 +440,6 @@ class GameTag(IntEnum):
 	PLAYER_TECH_LEVEL = 1377
 	BACON_HERO_POWER_ACTIVATED = 1398
 	USE_FAST_ACTOR_TRANSITION_ANIMATIONS = 1402
-	DECK_RULE_COUNT_AS_COPY_OF_CARD_ID = 1413
 	STUDY = 1414
 	BACON_ODD_PLAYER_OUT = 1415
 	BACON_IS_KEL_THUZAD = 1423
@@ -889,6 +888,8 @@ class GameTag(IntEnum):
 	BACON_TRIPLED_BASE_MINION_ID3 = 3500
 	QUEST_HIDE_PROGRESS = 3523
 	TRANSFORM = 3562
+	BACON_DONT_SHOW_PAIR_TRIPLE_DISCOVER_VFX = 3661
+	FALLBACK_ENCHANTMENT_PORTRAIT_DBID = 3664
 
 	InvisibleDeathrattle = 335
 	ImmuneToSpellpower = 349
@@ -1024,6 +1025,7 @@ class GameTag(IntEnum):
 	AVRANK = 2324
 	MERCS_DISCOVER = 2665
 	TOPDECK = 377
+	DECK_RULE_COUNT_AS_COPY_OF_CARD_ID = 1413
 
 	# Missing/guessed, only present in logs
 	# Note: the names of these can change at any time!
@@ -1179,6 +1181,7 @@ class CardSet(IntEnum):
 	GANGS_RESERVE = 26
 	UNGORO = 27  # Journey to Un'Goro
 	ICECROWN = 1001  # Knights of the Frozen Throne
+	TB_DEV = 1003
 	LOOTAPALOOZA = 1004  # Kobolds & Catacombs
 	GILNEAS = 1125  # The Witchwood
 	BOOMSDAY = 1127  # The Boomsday Project
@@ -1212,6 +1215,7 @@ class CardSet(IntEnum):
 	WONDERS = 1898
 	WHIZBANGS_WORKSHOP = 1897
 	TUTORIAL = 1904
+	ISLAND_VACATION = 1905  # Perils in Paradise
 	EVENT = 1941
 
 	# Not actually present...
@@ -1261,7 +1265,8 @@ class CardSet(IntEnum):
 			CardSet.TITANS,
 			CardSet.WILD_WEST,
 			CardSet.WONDERS,
-			CardSet.WHIZBANGS_WORKSHOP
+			CardSet.WHIZBANGS_WORKSHOP,
+			CardSet.ISLAND_VACATION,
 		)
 
 	@property
@@ -2495,19 +2500,31 @@ class ZodiacYear(IntEnum):
 if __name__ == "__main__":
 	import json
 	import sys
+	from collections import OrderedDict
 
-	all_enums = {
-		k: dict(v.__members__) for k, v in globals().items() if (  # type:ignore
-			isinstance(v, type) and issubclass(v, IntEnum) and k != "IntEnum"
-		)
-	}
+	def get_enum_key(enum, name):
+		val = enum[name].value
+		canonical_name = enum[name].name
+		if canonical_name == name:
+			return -100_000 + val
+		return val
+
+	# Consistently sort, but keep aliases at the end
+	all_enums = OrderedDict(sorted(
+		[
+			(
+				k, OrderedDict(sorted(v.__members__.items(), key=lambda x: get_enum_key(v, x[0])))
+			) for k, v in globals().items()
+			if isinstance(v, type) and issubclass(v, IntEnum) and k != "IntEnum"
+		],
+		key=lambda x: x[0]
+	))
 
 	def _print_enums(enums, format):
 		ret = []
 		linefmt = "\t%s = %i,"
-		for enum in sorted(enums):
-			sorted_pairs = sorted(enums[enum].items(), key=lambda k: k[1])
-			lines = "\n".join(linefmt % (name, value) for name, value in sorted_pairs)
+		for enum in enums:
+			lines = "\n".join(linefmt % (name, value) for name, value in enums[enum].items())
 			ret.append(format % (enum, lines))
 		print("\n\n".join(ret))
 
@@ -2521,4 +2538,4 @@ if __name__ == "__main__":
 	elif format == "--cs":
 		_print_enums(all_enums, "public enum %s {\n%s\n}")
 	else:
-		print(json.dumps(all_enums, sort_keys=True))
+		print(json.dumps(all_enums, sort_keys=False))
